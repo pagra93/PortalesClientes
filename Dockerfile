@@ -32,6 +32,9 @@ WORKDIR /app
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
+# Instalar su-exec para cambiar de usuario
+RUN apt-get update && apt-get install -y su-exec && rm -rf /var/lib/apt/lists/*
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
@@ -41,11 +44,15 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Cambiar ownership
+# Copiar script de entrypoint
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Cambiar ownership de archivos de la app
 RUN chown -R nextjs:nodejs /app
-
-USER nextjs
 
 EXPOSE 3006
 
@@ -56,6 +63,6 @@ ENV HOSTNAME="0.0.0.0"
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://127.0.0.1:3006/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Inicializar base de datos y Start
-CMD npx prisma db push --accept-data-loss && node server.js
+# Usar script de entrypoint (ejecuta como root, luego cambia a nextjs)
+CMD ["docker-entrypoint.sh"]
 
