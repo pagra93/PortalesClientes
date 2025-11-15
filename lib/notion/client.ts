@@ -113,7 +113,7 @@ export class NotionClient {
   async testConnection(): Promise<boolean> {
     try {
       await this.rateLimit();
-      await this.client.users.me();
+      await this.client.users.me({});
       return true;
     } catch {
       return false;
