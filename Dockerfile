@@ -40,6 +40,7 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Cambiar ownership
 RUN chown -R nextjs:nodejs /app
@@ -48,12 +49,13 @@ USER nextjs
 
 EXPOSE 3006
 
-ENV PORT 3006
+ENV PORT=3006
+ENV HOSTNAME="0.0.0.0"
 
 # Healthcheck
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3006/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://127.0.0.1:3006/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Inicializar base de datos y Start
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node server.js"]
+CMD npx prisma db push --accept-data-loss && node server.js
 
