@@ -1,9 +1,9 @@
 # Dockerfile para producción
-FROM node:18-alpine AS base
+FROM node:18-slim AS base
 
 # 1. Instalar dependencias
 FROM base AS deps
-RUN apk add --no-cache libc6-compat openssl
+RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
