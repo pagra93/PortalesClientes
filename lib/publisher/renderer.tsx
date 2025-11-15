@@ -87,7 +87,7 @@ export async function getPortalData(publicToken: string): Promise<PortalData | n
       });
 
       // Generar columnas desde allowlist
-      const columns = allowlist.map(prop => ({
+      const columns = allowlist.map((prop: any) => ({
         key: prop.displayName,
         label: prop.displayName,
         type: inferColumnType(prop.type),
