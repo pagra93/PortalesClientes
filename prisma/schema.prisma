@@ -1,0 +1,96 @@
+// Prisma schema para Portales Notion
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String?
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  portals           Portal[]
+  notionConnections NotionConnection[]
+
+  @@index([email])
+}
+
+model Portal {
+  id           String    @id @default(cuid())
+  userId       String
+  name         String
+  publicToken  String    @unique
+  template     String    // 'executive' | 'operational'
+  status       String    @default("draft") // 'draft' | 'published'
+  syncFreqMin  Int       @default(15)
+  lastSyncAt   DateTime?
+  lastSyncStatus String?  // 'ok' | 'error'
+  branding     String    @default("{\"logoUrl\": null, \"primaryColor\": \"#3b82f6\"}")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sources PortalSource[]
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([publicToken])
+  @@index([status])
+}
+
+model PortalSource {
+  id            String   @id @default(cuid())
+  portalId      String
+  section       String   // 'tasks' | 'milestones' | 'history'
+  notionDbId    String
+  filterJson    String   @default("{}") // Filtros de Notion
+  allowlistJson String   @default("[]") // Array de propiedades permitidas
+  mappingsJson  String   @default("{}") // statusMap, personasMap, etc.
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  portal Portal @relation(fields: [portalId], references: [id], onDelete: Cascade)
+
+  @@index([portalId])
+  @@index([section])
+}
+
+model NotionConnection {
+  id           String    @id @default(cuid())
+  userId       String
+  workspaceId  String?
+  workspaceName String?
+  accessToken  String    // Encriptado en producción
+  botId        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([userId])
+}
+
+model SyncLog {
+  id          String   @id @default(cuid())
+  portalId    String
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  status      String   // 'running' | 'ok' | 'error'
+  itemsCount  Int      @default(0)
+  errorMsg    String?
+  duration    Int?     // Duración en ms
+
+  @@index([portalId])
+  @@index([startedAt])
+  @@index([status])
+}
+

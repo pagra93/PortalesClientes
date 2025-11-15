@@ -1,0 +1,39 @@
+# Cursor Rules — Portales Cliente desde Notion
+
+## Stack & estándares
+- Framework: Next.js (App Router, TypeScript, React Server Components).
+- DB config/admin: Supabase Postgres (Prisma ORM).
+- Portal público: Next.js ISR (revalidate on-demand) + almacenamiento S3/R2 opcional para snapshots.
+- Estilos: TailwindCSS + shadcn/ui (solo componentes necesarios).
+- Lint: ESLint + Prettier. Formato estricto en pre-commit.
+- Tests: Vitest + React Testing Library para lógica crítica (transformadores y policies).
+- Commits: Conventional Commits (`feat:`, `fix:`, etc.).
+
+## Dominios / módulos
+- `auth/` Auth por OAuth (Google) + Magic Link opcional (Supabase Auth).
+- `notion/` SDK y capa de acceso; paginar 100 items y respetar rate limit con backoff.
+- `transform/` **Allowlist only**. Nunca incluir campos no listados. Sanitizar con `sanitize-html`.
+- `publisher/` Render plantilla → ISR revalidate o subida a S3/R2 si se elige snapshot estático.
+- `wizard/` 4 pasos: Connect → Template → Sources/Allowlist → Publish.
+
+## Seguridad obligatoria
+- Portal público usa **token opaco >= 128 bits**. Rotación disponible.
+- `noindex,nofollow` y cabeceras `X-Robots-Tag` en el portal.
+- Prohibido exponer: emails, notas internas, costes, enlaces a Notion.
+- Sanitizar todos los rich text (`allowedTags: []`).
+- Logs sin PII. Feature flags para ocultar debug en prod.
+
+## Rendimiento
+- ISR con `revalidateTag('portal:{id}')` tras sync.
+- Evitar hidratar en exceso; preferir RSC; tablas con paginación si >200 filas.
+- CDN para assets (logo) y cache headers adecuados.
+
+## DX
+- `.env.example` siempre actualizado.
+- Scripts npm: `dev`, `lint`, `test`, `db:push`, `db:seed`, `sync:once`.
+- Generadores: usar `pnpm dlx shadcn-ui@latest add ...` cuando haga falta.
+
+## Code style rápido
+- Carpeta por feature, no por tipo de archivo.
+- Nombres: `PortalWizardStepX.tsx`, `notionClient.ts`, `syncPortals.ts`.
+- Evitar utils genéricos; helpers cercanos a su feature.
