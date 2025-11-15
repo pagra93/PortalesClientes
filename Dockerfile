@@ -32,8 +32,8 @@ WORKDIR /app
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
-# Instalar gosu para cambiar de usuario
-RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
+# Instalar gosu y OpenSSL (necesario para Prisma)
+RUN apt-get update && apt-get install -y gosu openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
