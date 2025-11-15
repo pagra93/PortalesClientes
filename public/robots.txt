@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# Portales públicos no deben indexarse
+User-agent: *
+Disallow: /p/
+
