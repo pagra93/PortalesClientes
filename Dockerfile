@@ -55,14 +55,14 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # Cambiar ownership de archivos de la app
 RUN chown -R nextjs:nodejs /app
 
-EXPOSE 3006
+EXPOSE 3000
 
-ENV PORT=3006
+ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://127.0.0.1:3006/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+  CMD node -e "require('http').get('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Usar script de entrypoint (ejecuta como root, luego cambia a nextjs)
 CMD ["docker-entrypoint.sh"]
