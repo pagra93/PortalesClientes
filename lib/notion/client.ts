@@ -13,7 +13,7 @@ export class NotionClient {
 
   constructor(accessToken: string) {
     this.client = new Client({ auth: accessToken });
-    
+
     // Rate limiting: máx 3 req/seg por defecto
     const maxRPS = parseInt(process.env.NOTION_MAX_REQUESTS_PER_SECOND || '3', 10);
     this.minRequestInterval = 1000 / maxRPS;
@@ -25,7 +25,7 @@ export class NotionClient {
   private async rateLimit(attempt: number = 0): Promise<void> {
     const now = Date.now();
     const timeSinceLastRequest = now - this.lastRequestTime;
-    
+
     if (timeSinceLastRequest < this.minRequestInterval) {
       const delay = this.minRequestInterval - timeSinceLastRequest;
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -73,7 +73,7 @@ export class NotionClient {
           console.warn(`Rate limited, esperando ${backoffDelay}ms antes de reintentar...`);
           await new Promise(resolve => setTimeout(resolve, backoffDelay));
           attempt++;
-          
+
           if (attempt > 5) {
             throw new Error('Máximo de reintentos alcanzado por rate limiting');
           }
@@ -126,16 +126,18 @@ export class NotionClient {
  */
 export async function createNotionClientForUser(userId: string): Promise<NotionClient | null> {
   const { db } = await import('@/lib/db');
-  
+
   const connection = await db.notionConnection.findFirst({
     where: { userId },
     orderBy: { createdAt: 'desc' },
   });
 
   if (!connection) {
+    console.log(`❌ No se encontró conexión de Notion para userId: ${userId}`);
     return null;
   }
 
+  console.log(`🔍 Token encontrado en DB para userId ${userId}: ${connection.accessToken.substring(0, 10)}... (longitud: ${connection.accessToken.length})`);
   return new NotionClient(connection.accessToken);
 }
 
