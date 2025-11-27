@@ -3,6 +3,7 @@
  */
 
 import { getServerSession } from 'next-auth';
+import { redirect } from 'next/navigation';
 import { authOptions } from '@/lib/auth-config';
 
 export type Session = {
@@ -32,7 +33,7 @@ export async function getSession(): Promise<Session | null> {
 
   // En producción, usar NextAuth
   const session = await getServerSession(authOptions);
-  
+
   if (!session?.user?.email) {
     return null;
   }
@@ -52,9 +53,9 @@ export async function getSession(): Promise<Session | null> {
  */
 export async function requireAuth(): Promise<Session> {
   const session = await getSession();
-  
+
   if (!session) {
-    throw new Error('No autenticado');
+    redirect('/login');
   }
 
   return session;
