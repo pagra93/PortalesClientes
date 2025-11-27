@@ -12,15 +12,15 @@ import { db } from '@/lib/db';
 export async function initializeInternalToken(userId: string): Promise<boolean> {
   const token = process.env.NOTION_TOKEN;
 
-  if (!token || !token.startsWith('ntn_')) {
-    console.log('No hay NOTION_TOKEN configurado en .env');
+  if (!token || (!token.startsWith('ntn_') && !token.startsWith('secret_'))) {
+    console.log('No hay NOTION_TOKEN configurado en .env o formato inválido');
     return false;
   }
 
   try {
     // Verificar si ya existe una conexión
     const existing = await db.notionConnection.findFirst({
-      where: { 
+      where: {
         userId,
         workspaceId: 'internal-token'
       },
@@ -61,6 +61,6 @@ export async function initializeInternalToken(userId: string): Promise<boolean> 
  */
 export function hasInternalToken(): boolean {
   const token = process.env.NOTION_TOKEN;
-  return !!(token && token.startsWith('ntn_'));
+  return !!(token && (token.startsWith('ntn_') || token.startsWith('secret_')));
 }
 
