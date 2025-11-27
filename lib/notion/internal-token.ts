@@ -48,7 +48,7 @@ export async function initializeInternalToken(userId: string): Promise<boolean> 
       },
     });
 
-    console.log('✅ Conexión de Notion creada con token interno');
+    console.log(`✅ Conexión de Notion creada con token interno. Token empieza por: ${token.substring(0, 10)}... Longitud: ${token.length}`);
     return true;
   } catch (error) {
     console.error('Error inicializando token de Notion:', error);
