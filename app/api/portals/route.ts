@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
+import { getSession } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { generateSecureToken } from '@/lib/utils';
 
@@ -8,7 +8,10 @@ import { generateSecureToken } from '@/lib/utils';
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireAuth();
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const body = await request.json();
 
     const { name, template, branding, sources, syncFreqMin, status } = body;

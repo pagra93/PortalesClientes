@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
+import { getSession } from '@/lib/auth';
 
 /**
  * Inicia el flujo OAuth de Notion
  */
 export async function GET() {
   try {
-    await requireAuth();
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const clientId = process.env.NOTION_CLIENT_ID;
     const redirectUri = process.env.NOTION_REDIRECT_URI;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
+import { getSession } from '@/lib/auth';
 import { syncPortal } from '@/lib/publisher/sync';
 import { db } from '@/lib/db';
 
@@ -8,7 +8,10 @@ import { db } from '@/lib/db';
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await requireAuth();
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const body = await request.json();
     const { portalId } = body;
 
@@ -44,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     if (!result.success) {
       return NextResponse.json(
-        { 
+        {
           error: result.error,
           duration: result.duration,
         },
