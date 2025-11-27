@@ -1,4 +1,4 @@
-import { PortalData } from '@/lib/publisher/types';
+import { PortalData, PORTAL_SECTIONS } from '@/lib/publisher/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatRelativeTime } from '@/lib/utils';
@@ -26,101 +26,66 @@ export function PortalOperational({ data }: Props) {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        {/* Tareas */}
-        {data.sections.tasks && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Tareas ({data.sections.tasks.totalCount})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      {data.sections.tasks.columns.map((col) => (
-                        <th key={col.key} className="text-left p-2 font-medium text-muted-foreground">
-                          {col.label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.sections.tasks.items.map((item) => (
-                      <tr key={item.id} className="border-b hover:bg-muted/50">
-                        {data.sections.tasks.columns.map((col) => (
-                          <td key={col.key} className="p-2">
-                            {renderCell(item[col.key], col.type)}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {PORTAL_SECTIONS.map((sectionDef) => {
+          const sectionData = data.sections[sectionDef.key];
 
-        {/* Hitos */}
-        {data.sections.milestones && data.sections.milestones.items.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Hitos ({data.sections.milestones.totalCount})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      {data.sections.milestones.columns.map((col) => (
-                        <th key={col.key} className="text-left p-2 font-medium text-muted-foreground">
-                          {col.label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.sections.milestones.items.map((item) => (
-                      <tr key={item.id} className="border-b hover:bg-muted/50">
-                        {data.sections.milestones.columns.map((col) => (
-                          <td key={col.key} className="p-2">
-                            {renderCell(item[col.key], col.type)}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+          // Skip if section has no data or is not configured
+          if (!sectionData || sectionData.items.length === 0) return null;
 
-        {/* Historial */}
-        {data.sections.history && data.sections.history.items.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Historial ({data.sections.history.totalCount})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {data.sections.history.items.map((item) => (
-                  <div key={item.id} className="border-b pb-3 last:border-0">
-                    {Object.entries(item).map(([key, value]) => {
-                      if (key === 'id') return null;
-                      return (
-                        <div key={key} className="text-sm">
-                          <span className="font-medium">{key}:</span>{' '}
-                          {renderCell(value, 'text')}
-                        </div>
-                      );
-                    })}
+          return (
+            <Card key={sectionDef.key}>
+              <CardHeader>
+                <CardTitle>{sectionDef.label} ({sectionData.totalCount})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {sectionDef.key === 'history' ? (
+                  // Render History as List
+                  <div className="space-y-3">
+                    {sectionData.items.map((item) => (
+                      <div key={item.id} className="border-b pb-3 last:border-0">
+                        {Object.entries(item).map(([key, value]) => {
+                          if (key === 'id') return null;
+                          return (
+                            <div key={key} className="text-sm">
+                              <span className="font-medium">{key}:</span>{' '}
+                              {renderCell(value, 'text')}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                ) : (
+                  // Render everything else as Table
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          {sectionData.columns.map((col) => (
+                            <th key={col.key} className="text-left p-2 font-medium text-muted-foreground">
+                              {col.label}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sectionData.items.map((item) => (
+                          <tr key={item.id} className="border-b hover:bg-muted/50">
+                            {sectionData.columns.map((col) => (
+                              <td key={col.key} className="p-2">
+                                {renderCell(item[col.key], col.type)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
       </main>
 
       <footer className="border-t mt-12 py-6 text-center text-sm text-muted-foreground">
