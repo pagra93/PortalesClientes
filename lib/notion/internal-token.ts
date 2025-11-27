@@ -13,7 +13,7 @@ export async function initializeInternalToken(userId: string): Promise<boolean> 
   const token = process.env.NOTION_TOKEN;
 
   if (!token || (!token.startsWith('ntn_') && !token.startsWith('secret_'))) {
-    console.log('No hay NOTION_TOKEN configurado en .env o formato inválido');
+    console.log(`No hay NOTION_TOKEN configurado en .env o formato inválido. Token exists: ${!!token}, Starts with ntn_: ${token?.startsWith('ntn_')}, Starts with secret_: ${token?.startsWith('secret_')}, Length: ${token?.length}`);
     return false;
   }
 
