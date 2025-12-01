@@ -93,9 +93,8 @@ export default function NewPortalPage() {
           {[1, 2, 3, 4].map((s) => (
             <div
               key={s}
-              className={`h-2 flex-1 rounded-full ${
-                s <= step ? 'bg-primary' : 'bg-muted'
-              }`}
+              className={`h-2 flex-1 rounded-full ${s <= step ? 'bg-primary' : 'bg-muted'
+                }`}
             />
           ))}
         </div>
@@ -120,6 +119,7 @@ export default function NewPortalPage() {
 
       {step === 3 && (
         <Step3Sources
+          wizardData={wizardData}
           onNext={handleStep3}
           onBack={() => setStep(2)}
         />
