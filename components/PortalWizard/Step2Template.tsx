@@ -23,7 +23,7 @@ export function Step2Template({ onNext, onBack }: Step2Props) {
 
   const handleNext = () => {
     if (!name.trim()) return;
-    
+
     onNext({
       name,
       template,
@@ -63,46 +63,53 @@ export function Step2Template({ onNext, onBack }: Step2Props) {
           <CardTitle>Plantilla</CardTitle>
           <CardDescription>Selecciona el tipo de vista que mejor se adapte</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <button
-            type="button"
+        <CardContent className="grid md:grid-cols-2 gap-4">
+          <div
             onClick={() => setTemplate('executive')}
-            className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
-              template === 'executive'
-                ? 'border-primary bg-primary/5'
-                : 'border-border hover:border-primary/50'
-            }`}
+            className={`cursor-pointer border-2 rounded-lg p-4 transition-all hover:border-primary/50 ${template === 'executive' ? 'border-primary bg-primary/5' : 'border-border'
+              }`}
           >
-            <div className="flex items-start gap-3">
-              {template === 'executive' && <CheckCircle2 className="h-5 w-5 text-primary mt-0.5" />}
-              <div className="flex-1">
+            <div className="aspect-video bg-slate-100 rounded-md mb-3 overflow-hidden border">
+              {/* Miniatura Ejecutiva */}
+              <div className="w-full h-full p-2 space-y-2 opacity-50">
+                <div className="h-8 bg-white rounded shadow-sm w-full" />
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="h-16 bg-white rounded shadow-sm" />
+                  <div className="h-16 bg-white rounded shadow-sm" />
+                  <div className="h-16 bg-white rounded shadow-sm" />
+                </div>
+                <div className="h-20 bg-white rounded shadow-sm w-full" />
+              </div>
+            </div>
+            <div className="flex items-start justify-between">
+              <div>
                 <h3 className="font-semibold">Ejecutiva</h3>
-                <p className="text-sm text-muted-foreground">
-                  Vista simplificada con métricas clave, hitos y resumen de progreso
-                </p>
+                <p className="text-sm text-muted-foreground">KPIs y resumen de alto nivel</p>
               </div>
+              {template === 'executive' && <CheckCircle2 className="h-5 w-5 text-primary" />}
             </div>
-          </button>
+          </div>
 
-          <button
-            type="button"
+          <div
             onClick={() => setTemplate('operational')}
-            className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
-              template === 'operational'
-                ? 'border-primary bg-primary/5'
-                : 'border-border hover:border-primary/50'
-            }`}
+            className={`cursor-pointer border-2 rounded-lg p-4 transition-all hover:border-primary/50 ${template === 'operational' ? 'border-primary bg-primary/5' : 'border-border'
+              }`}
           >
-            <div className="flex items-start gap-3">
-              {template === 'operational' && <CheckCircle2 className="h-5 w-5 text-primary mt-0.5" />}
-              <div className="flex-1">
-                <h3 className="font-semibold">Operativa</h3>
-                <p className="text-sm text-muted-foreground">
-                  Vista detallada con todas las tareas, historial de cambios y documentación
-                </p>
+            <div className="aspect-video bg-slate-100 rounded-md mb-3 overflow-hidden border">
+              {/* Miniatura Operativa */}
+              <div className="w-full h-full p-2 space-y-2 opacity-50">
+                <div className="h-8 bg-white rounded shadow-sm w-full" />
+                <div className="h-40 bg-white rounded shadow-sm w-full" />
               </div>
             </div>
-          </button>
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="font-semibold">Operativa</h3>
+                <p className="text-sm text-muted-foreground">Listas detalladas y documentación</p>
+              </div>
+              {template === 'operational' && <CheckCircle2 className="h-5 w-5 text-primary" />}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

@@ -2,13 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
-import { PORTAL_SECTIONS, PortalSection } from '@/lib/publisher/types';
+import { PORTAL_SECTIONS, PortalSection, PortalData } from '@/lib/publisher/types';
+import { PortalExecutive } from '@/components/Portal/PortalExecutive';
+import { PortalOperational } from '@/components/Portal/PortalOperational';
 
+// --- Interfaces ---
 interface Database {
   id: string;
   title: string;
@@ -18,37 +22,73 @@ interface Property {
   name: string;
   type: string;
   id: string;
+  options?: { id: string; name: string; color: string }[];
 }
 
 interface SourceConfig {
   section: PortalSection;
   notionDbId: string;
   allowlist: string[];
+  filterJson?: any;
 }
 
 interface Step3Props {
+  wizardData: any;
+  initialSources?: any[]; // Add this prop
   onNext: (sources: SourceConfig[]) => void;
   onBack: () => void;
 }
 
-export function Step3Sources({ onNext, onBack }: Step3Props) {
+export function Step3Sources({ wizardData, initialSources, onNext, onBack }: Step3Props) {
   const [databases, setDatabases] = useState<Database[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Initialize state dynamically based on PORTAL_SECTIONS
-  const [selectedDbs, setSelectedDbs] = useState<Record<string, string>>(() =>
-    PORTAL_SECTIONS.reduce((acc, curr) => ({ ...acc, [curr.key]: '' }), {})
-  );
+  // Configuration State
+  const [sources, setSources] = useState<Record<string, SourceConfig>>({});
+  const [propertiesCache, setPropertiesCache] = useState<Record<string, Property[]>>({});
 
-  const [properties, setProperties] = useState<Record<string, Property[]>>({});
+  // UI State
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
 
-  const [selectedProps, setSelectedProps] = useState<Record<string, string[]>>(() =>
-    PORTAL_SECTIONS.reduce((acc, curr) => ({ ...acc, [curr.key]: [] }), {})
-  );
+  // Temporary state for the modal
+  const [tempDbId, setTempDbId] = useState('');
+  const [tempProps, setTempProps] = useState<string[]>([]);
+  const [tempFilter, setTempFilter] = useState<{ property: string; value: string }>({ property: '', value: '' });
 
   useEffect(() => {
     loadDatabases();
   }, []);
+
+  // Load initial sources if editing
+  useEffect(() => {
+    if (initialSources && initialSources.length > 0 && databases.length > 0) {
+      const loadedSources: Record<string, SourceConfig> = {};
+
+      initialSources.forEach(s => {
+        // Parse JSONs if they come from DB
+        const allowlist = typeof s.allowlistJson === 'string'
+          ? JSON.parse(s.allowlistJson).map((p: any) => p.notionKey || p.displayName) // Adapt based on storage format
+          : s.allowlist || [];
+
+        const filterJson = typeof s.filterJson === 'string'
+          ? JSON.parse(s.filterJson)
+          : s.filterJson || {};
+
+        loadedSources[s.section] = {
+          section: s.section as PortalSection,
+          notionDbId: s.notionDbId,
+          allowlist,
+          filterJson
+        };
+
+        // Pre-load properties for these databases
+        loadProperties(s.notionDbId);
+      });
+
+      setSources(loadedSources);
+    }
+  }, [initialSources, databases]);
 
   const loadDatabases = async () => {
     try {
@@ -62,52 +102,112 @@ export function Step3Sources({ onNext, onBack }: Step3Props) {
     }
   };
 
-  const loadProperties = async (dbId: string, section: string) => {
+  const loadProperties = async (dbId: string) => {
+    if (propertiesCache[dbId]) return propertiesCache[dbId];
     try {
       const res = await fetch(`/api/notion/database/${dbId}/properties`);
       const data = await res.json();
-      setProperties((prev) => ({ ...prev, [section]: data.properties || [] }));
+      setPropertiesCache(prev => ({ ...prev, [dbId]: data.properties || [] }));
+      return data.properties || [];
     } catch (error) {
       console.error('Error loading properties:', error);
+      return [];
     }
   };
 
-  const handleDbSelect = (section: string, dbId: string) => {
-    setSelectedDbs((prev) => ({ ...prev, [section]: dbId }));
-    setSelectedProps((prev) => ({ ...prev, [section]: [] }));
-    loadProperties(dbId, section);
+  const handleConfigureSection = (sectionKey: string) => {
+    setActiveSection(sectionKey);
+    const currentConfig = sources[sectionKey];
+
+    if (currentConfig) {
+      setTempDbId(currentConfig.notionDbId);
+      setTempProps(currentConfig.allowlist);
+      // Restore filter if possible (simplified)
+      setTempFilter({ property: '', value: '' });
+      loadProperties(currentConfig.notionDbId);
+    } else {
+      setTempDbId('');
+      setTempProps([]);
+      setTempFilter({ property: '', value: '' });
+    }
+
+    setIsConfigOpen(true);
   };
 
-  const toggleProperty = (section: string, propName: string) => {
-    setSelectedProps((prev) => {
-      const current = prev[section] || [];
-      const updated = current.includes(propName)
-        ? current.filter((p) => p !== propName)
-        : [...current, propName];
-      return { ...prev, [section]: updated };
-    });
+  const handleDbSelect = async (dbId: string) => {
+    setTempDbId(dbId);
+    setTempProps([]);
+    setTempFilter({ property: '', value: '' });
+    await loadProperties(dbId);
   };
 
-  const handleNext = () => {
-    const sources: SourceConfig[] = [];
+  const toggleProperty = (propName: string) => {
+    setTempProps(prev =>
+      prev.includes(propName)
+        ? prev.filter(p => p !== propName)
+        : [...prev, propName]
+    );
+  };
 
-    for (const section of PORTAL_SECTIONS) {
-      const key = section.key;
-      if (selectedDbs[key] && selectedProps[key]?.length > 0) {
-        sources.push({
-          section: key,
-          notionDbId: selectedDbs[key],
-          allowlist: selectedProps[key],
-        });
+  const saveConfiguration = () => {
+    if (!activeSection || !tempDbId) return;
+
+    let filterJson = {};
+    const dbProps = propertiesCache[tempDbId] || [];
+
+    if (tempFilter.property && tempFilter.value) {
+      const prop = dbProps.find((p) => p.name === tempFilter.property);
+      if (prop) {
+        if (['select', 'status', 'multi_select'].includes(prop.type)) {
+          filterJson = { property: tempFilter.property, [prop.type]: { equals: tempFilter.value } };
+        } else {
+          filterJson = { property: tempFilter.property, rich_text: { equals: tempFilter.value } };
+        }
       }
     }
 
-    if (sources.length === 0) {
+    setSources(prev => ({
+      ...prev,
+      [activeSection]: {
+        section: activeSection as PortalSection,
+        notionDbId: tempDbId,
+        allowlist: tempProps,
+        filterJson
+      }
+    }));
+
+    setIsConfigOpen(false);
+  };
+
+  const handleNext = () => {
+    const configList = Object.values(sources);
+    if (configList.length === 0) {
       alert('Debes configurar al menos una sección');
       return;
     }
+    onNext(configList);
+  };
 
-    onNext(sources);
+  // Generate preview data
+  const previewData: PortalData = {
+    id: 'preview',
+    name: wizardData.name || 'Portal Preview',
+    template: wizardData.template,
+    branding: wizardData.branding || { primaryColor: '#3b82f6' },
+    lastSync: null,
+    sections: {
+      tasks: sources['tasks'] ? {
+        items: [{ id: '1', Tarea: 'Ejemplo Tarea', Estado: { label: 'En Progreso', color: 'blue' } }],
+        columns: sources['tasks'].allowlist.map(k => ({ key: k, label: k, type: 'text' })),
+        totalCount: 1
+      } : { items: [], columns: [], totalCount: 0 },
+      milestones: sources['milestones'] ? {
+        items: [{ id: '1', Nombre: 'Hito Ejemplo', Fecha: { start: '2024-01-01' } }],
+        columns: sources['milestones'].allowlist.map(k => ({ key: k, label: k, type: 'text' })),
+        totalCount: 1
+      } : { items: [], columns: [], totalCount: 0 },
+      history: { items: [], columns: [], totalCount: 0 }
+    }
   };
 
   if (loading) {
@@ -120,76 +220,116 @@ export function Step3Sources({ onNext, onBack }: Step3Props) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Paso 3: Fuentes de datos</h2>
-        <p className="text-muted-foreground mt-1">
-          Asigna bases de datos a cada sección y selecciona qué campos mostrar
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold">Diseña tu portal</h2>
+          <p className="text-muted-foreground">
+            Haz clic en las secciones para conectar tus datos
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onBack}>Atrás</Button>
+          <Button onClick={handleNext}>Publicar Portal</Button>
+        </div>
       </div>
 
-      <div className="grid gap-6">
-        {PORTAL_SECTIONS.map((section) => (
-          <Card key={section.key}>
-            <CardHeader>
-              <CardTitle>{section.label}</CardTitle>
-              <CardDescription>
-                Base de datos y propiedades para la sección de {section.label}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Base de datos de Notion</Label>
-                <Select
-                  value={selectedDbs[section.key]}
-                  onValueChange={(val) => handleDbSelect(section.key, val)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona una base de datos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {databases.map((db) => (
-                      <SelectItem key={db.id} value={db.id}>
-                        {db.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+      <div className="border rounded-xl overflow-hidden shadow-lg bg-slate-50 relative min-h-[600px]">
+        {wizardData.template === 'executive' ? (
+          <PortalExecutive data={previewData} isEditing={true} onConfigureSection={handleConfigureSection} />
+        ) : (
+          <PortalOperational data={previewData} isEditing={true} onConfigureSection={handleConfigureSection} />
+        )}
+      </div>
 
-              {selectedDbs[section.key] && properties[section.key] && (
+      {/* Configuration Modal */}
+      <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Configurar Sección: {PORTAL_SECTIONS.find(s => s.key === activeSection)?.label}</DialogTitle>
+            <DialogDescription>Conecta una base de datos de Notion y selecciona qué mostrar.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label>Base de datos</Label>
+              <Select value={tempDbId} onValueChange={handleDbSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una base de datos" />
+                </SelectTrigger>
+                <SelectContent>
+                  {databases.map(db => (
+                    <SelectItem key={db.id} value={db.id}>{db.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {tempDbId && propertiesCache[tempDbId] && (
+              <>
                 <div className="space-y-2">
-                  <Label>Propiedades permitidas (allowlist)</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Solo las propiedades seleccionadas serán visibles en el portal
-                  </p>
-                  <div className="flex flex-wrap gap-2 p-3 border rounded-lg min-h-[60px]">
-                    {properties[section.key].map((prop) => (
+                  <Label>Propiedades visibles</Label>
+                  <div className="flex flex-wrap gap-2 p-3 border rounded-lg max-h-[150px] overflow-y-auto">
+                    {propertiesCache[tempDbId].map(prop => (
                       <Badge
-                        key={prop.name}
-                        variant={selectedProps[section.key]?.includes(prop.name) ? 'default' : 'outline'}
+                        key={prop.id}
+                        variant={tempProps.includes(prop.name) ? 'default' : 'outline'}
                         className="cursor-pointer"
-                        onClick={() => toggleProperty(section.key, prop.name)}
+                        onClick={() => toggleProperty(prop.name)}
                       >
-                        {prop.name} ({prop.type})
+                        {prop.name}
                       </Badge>
                     ))}
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
 
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>
-          ← Atrás
-        </Button>
-        <Button onClick={handleNext} size="lg">
-          Continuar →
-        </Button>
-      </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Filtrar por propiedad</Label>
+                    <Select
+                      value={tempFilter.property}
+                      onValueChange={(val) => setTempFilter(prev => ({ ...prev, property: val }))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Opcional" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">-- Sin filtro --</SelectItem>
+                        {propertiesCache[tempDbId]
+                          .filter(p => ['select', 'status', 'multi_select'].includes(p.type))
+                          .map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                          )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {tempFilter.property && tempFilter.property !== 'none' && (
+                    <div className="space-y-2">
+                      <Label>Valor del filtro</Label>
+                      <Select
+                        value={tempFilter.value}
+                        onValueChange={(val) => setTempFilter(prev => ({ ...prev, value: val }))}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Selecciona valor" /></SelectTrigger>
+                        <SelectContent>
+                          {propertiesCache[tempDbId]
+                            .find(p => p.name === tempFilter.property)
+                            ?.options?.map(opt => (
+                              <SelectItem key={opt.id} value={opt.name}>{opt.name}</SelectItem>
+                            ))
+                          }
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsConfigOpen(false)}>Cancelar</Button>
+            <Button onClick={saveConfiguration} disabled={!tempDbId || tempProps.length === 0}>Guardar Cambios</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-

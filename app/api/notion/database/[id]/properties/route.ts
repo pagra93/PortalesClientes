@@ -29,6 +29,7 @@ export async function GET(
       name,
       type: prop.type,
       id: prop.id,
+      options: prop.select?.options || prop.multi_select?.options || prop.status?.options || [],
     }));
 
     return NextResponse.json({ properties });

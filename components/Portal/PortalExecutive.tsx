@@ -1,41 +1,73 @@
 import { PortalData } from '@/lib/publisher/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { formatRelativeTime } from '@/lib/utils';
+import { PortalTable } from './PortalTable';
+import { Edit, Plus } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Props {
   data: PortalData;
+  isEditing?: boolean;
+  onConfigureSection?: (sectionKey: string) => void;
 }
 
-export function PortalExecutive({ data }: Props) {
+export function PortalExecutive({ data, isEditing, onConfigureSection }: Props) {
   const tasksSection = data.sections.tasks;
   const milestonesSection = data.sections.milestones;
 
-  // Calcular métricas simples
+  // Calcular métricas simples (Best effort)
   const totalTasks = tasksSection?.totalCount || 0;
-  const completedTasks = tasksSection?.items.filter(
-    (t) => t.Estado?.label?.toLowerCase().includes('complet')
-  ).length || 0;
+  const completedTasks = tasksSection?.items.filter((t) => {
+    // Try to find a status property
+    const status = Object.values(t).find((v: any) => v?.type === 'status' || v?.label);
+    if (status && typeof status === 'object' && 'label' in status) {
+      return (status as any).label.toLowerCase().includes('complet') || (status as any).label.toLowerCase().includes('done');
+    }
+    return false;
+  }).length || 0;
+
   const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+  const EditOverlay = ({ sectionKey, hasData }: { sectionKey: string; hasData: boolean }) => {
+    if (!isEditing) return null;
+    return (
+      <div
+        className={cn(
+          "absolute inset-0 bg-slate-900/5 backdrop-blur-[1px] border-2 border-dashed border-primary/50 rounded-lg flex items-center justify-center cursor-pointer transition-all hover:bg-slate-900/10 hover:border-primary z-20",
+          !hasData && "bg-slate-50 border-slate-300"
+        )}
+        onClick={() => onConfigureSection?.(sectionKey)}
+      >
+        <div className="bg-white px-4 py-2 rounded-full shadow-sm flex items-center gap-2 text-sm font-medium text-primary">
+          {hasData ? <Edit className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+          {hasData ? 'Editar configuración' : 'Conectar base de datos'}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100"
+      className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 relative"
       style={{ '--primary': data.branding.primaryColor } as any}
     >
       {/* Header */}
-      <header className="bg-white border-b shadow-sm">
+      <header className="bg-white border-b shadow-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold">{data.name}</h1>
-          {data.lastSync && (
-            <p className="text-sm text-muted-foreground mt-1">
-              Última actualización: {formatRelativeTime(data.lastSync)}
-            </p>
-          )}
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">{data.name}</h1>
+              {data.lastSync && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Última actualización: {formatRelativeTime(data.lastSync)}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 space-y-6">
+      <main className="container mx-auto px-4 py-8 space-y-8">
         {/* KPIs */}
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
@@ -47,7 +79,7 @@ export function PortalExecutive({ data }: Props) {
             <CardContent>
               <div className="text-3xl font-bold">{progress}%</div>
               <p className="text-xs text-muted-foreground mt-1">
-                {completedTasks} de {totalTasks} tareas
+                {completedTasks} de {totalTasks} tareas completadas
               </p>
             </CardContent>
           </Card>
@@ -78,89 +110,40 @@ export function PortalExecutive({ data }: Props) {
         </div>
 
         {/* Hitos */}
-        {milestonesSection && milestonesSection.items.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Hitos clave</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {milestonesSection.items.slice(0, 5).map((milestone) => (
-                  <div key={milestone.id} className="flex items-start justify-between border-b pb-3 last:border-0">
-                    <div className="flex-1">
-                      <h3 className="font-medium">{milestone.Nombre || milestone.Título || 'Sin título'}</h3>
-                      {milestone.Fecha && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {milestone.Fecha.start}
-                        </p>
-                      )}
-                    </div>
-                    {milestone.Estado && (
-                      <Badge
-                        style={{
-                          backgroundColor: getColorForStatus(milestone.Estado.color),
-                        }}
-                      >
-                        {milestone.Estado.label}
-                      </Badge>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <div className="relative group min-h-[200px] rounded-lg">
+          <EditOverlay sectionKey="milestones" hasData={!!(milestonesSection && milestonesSection.items.length > 0)} />
+          {milestonesSection && milestonesSection.items.length > 0 ? (
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-slate-800">Hitos Clave</h2>
+              <PortalTable columns={milestonesSection.columns} items={milestonesSection.items} />
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center border-2 border-dashed border-slate-200 rounded-lg p-12">
+              <p className="text-slate-400 font-medium">Sección de Hitos (Vacía)</p>
+            </div>
+          )}
+        </div>
 
         {/* Tareas recientes */}
-        {tasksSection && tasksSection.items.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Tareas recientes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {tasksSection.items.slice(0, 10).map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">
-                        {task.Nombre || task.Título || task.Tarea || 'Sin título'}
-                      </p>
-                    </div>
-                    {task.Estado && (
-                      <Badge
-                        variant="outline"
-                        style={{
-                          borderColor: getColorForStatus(task.Estado.color),
-                          color: getColorForStatus(task.Estado.color),
-                        }}
-                      >
-                        {task.Estado.label}
-                      </Badge>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <div className="relative group min-h-[200px] rounded-lg">
+          <EditOverlay sectionKey="tasks" hasData={!!(tasksSection && tasksSection.items.length > 0)} />
+          {tasksSection && tasksSection.items.length > 0 ? (
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-slate-800">Tareas del Proyecto</h2>
+              <PortalTable columns={tasksSection.columns} items={tasksSection.items} />
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center border-2 border-dashed border-slate-200 rounded-lg p-12">
+              <p className="text-slate-400 font-medium">Sección de Tareas (Vacía)</p>
+            </div>
+          )}
+        </div>
       </main>
 
-      <footer className="border-t mt-12 py-6 text-center text-sm text-muted-foreground">
-        Portal generado desde Notion
+      <footer className="border-t mt-12 py-8 bg-white text-center text-sm text-muted-foreground">
+        <p>Portal generado con Notion Portals</p>
       </footer>
     </div>
   );
-}
-
-function getColorForStatus(color: string): string {
-  const colorMap: Record<string, string> = {
-    gray: '#6b7280',
-    blue: '#3b82f6',
-    green: '#10b981',
-    yellow: '#f59e0b',
-    red: '#ef4444',
-    orange: '#f97316',
-  };
-  return colorMap[color] || colorMap.gray;
 }
 

@@ -1,22 +1,43 @@
 import { PortalData, PORTAL_SECTIONS } from '@/lib/publisher/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { formatRelativeTime } from '@/lib/utils';
+import { PortalTable } from './PortalTable';
+import { Edit, Plus } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Props {
   data: PortalData;
+  isEditing?: boolean;
+  onConfigureSection?: (sectionKey: string) => void;
 }
 
-export function PortalOperational({ data }: Props) {
+export function PortalOperational({ data, isEditing, onConfigureSection }: Props) {
+  const EditOverlay = ({ sectionKey, hasData }: { sectionKey: string; hasData: boolean }) => {
+    if (!isEditing) return null;
+    return (
+      <div
+        className={cn(
+          "absolute inset-0 bg-slate-900/5 backdrop-blur-[1px] border-2 border-dashed border-primary/50 rounded-lg flex items-center justify-center cursor-pointer transition-all hover:bg-slate-900/10 hover:border-primary z-20",
+          !hasData && "bg-slate-50 border-slate-300"
+        )}
+        onClick={() => onConfigureSection?.(sectionKey)}
+      >
+        <div className="bg-white px-4 py-2 rounded-full shadow-sm flex items-center gap-2 text-sm font-medium text-primary">
+          {hasData ? <Edit className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+          {hasData ? 'Editar configuración' : 'Conectar base de datos'}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
-      className="min-h-screen bg-background"
+      className="min-h-screen bg-slate-50 relative"
       style={{ '--primary': data.branding.primaryColor } as any}
     >
       {/* Header */}
-      <header className="bg-white border-b">
+      <header className="bg-white border-b sticky top-0 z-10 shadow-sm">
         <div className="container mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold">{data.name}</h1>
+          <h1 className="text-3xl font-bold text-slate-900">{data.name}</h1>
           {data.lastSync && (
             <p className="text-sm text-muted-foreground mt-1">
               Última actualización: {formatRelativeTime(data.lastSync)}
@@ -28,114 +49,41 @@ export function PortalOperational({ data }: Props) {
       <main className="container mx-auto px-4 py-8 space-y-8">
         {PORTAL_SECTIONS.map((sectionDef) => {
           const sectionData = data.sections[sectionDef.key];
+          const hasData = !!(sectionData && sectionData.items.length > 0);
 
-          // Skip if section has no data or is not configured
-          if (!sectionData || sectionData.items.length === 0) return null;
+          // In view mode, skip empty sections. In edit mode, show them.
+          if (!isEditing && !hasData) return null;
 
           return (
-            <Card key={sectionDef.key}>
-              <CardHeader>
-                <CardTitle>{sectionDef.label} ({sectionData.totalCount})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {sectionDef.key === 'history' ? (
-                  // Render History as List
-                  <div className="space-y-3">
-                    {sectionData.items.map((item) => (
-                      <div key={item.id} className="border-b pb-3 last:border-0">
-                        {Object.entries(item).map(([key, value]) => {
-                          if (key === 'id') return null;
-                          return (
-                            <div key={key} className="text-sm">
-                              <span className="font-medium">{key}:</span>{' '}
-                              {renderCell(value, 'text')}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
+            <div key={sectionDef.key} className="relative group min-h-[150px] rounded-lg">
+              <EditOverlay sectionKey={sectionDef.key} hasData={hasData} />
+
+              {hasData ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold text-slate-800">
+                      {sectionDef.label}
+                      <span className="ml-2 text-sm font-normal text-muted-foreground">
+                        ({sectionData.totalCount})
+                      </span>
+                    </h2>
                   </div>
-                ) : (
-                  // Render everything else as Table
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b">
-                          {sectionData.columns.map((col) => (
-                            <th key={col.key} className="text-left p-2 font-medium text-muted-foreground">
-                              {col.label}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sectionData.items.map((item) => (
-                          <tr key={item.id} className="border-b hover:bg-muted/50">
-                            {sectionData.columns.map((col) => (
-                              <td key={col.key} className="p-2">
-                                {renderCell(item[col.key], col.type)}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  <PortalTable columns={sectionData.columns} items={sectionData.items} />
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center border-2 border-dashed border-slate-200 rounded-lg p-12">
+                  <p className="text-slate-400 font-medium">Sección de {sectionDef.label} (Vacía)</p>
+                </div>
+              )}
+            </div>
           );
         })}
       </main>
 
-      <footer className="border-t mt-12 py-6 text-center text-sm text-muted-foreground">
-        Portal generado desde Notion
+      <footer className="border-t mt-12 py-8 bg-white text-center text-sm text-muted-foreground">
+        <p>Portal generado con Notion Portals</p>
       </footer>
     </div>
   );
-}
-
-function renderCell(value: any, type: string) {
-  if (value === null || value === undefined) {
-    return <span className="text-muted-foreground">—</span>;
-  }
-
-  if (type === 'status' && typeof value === 'object' && value.label) {
-    return (
-      <Badge
-        style={{
-          backgroundColor: getColorForStatus(value.color),
-        }}
-      >
-        {value.label}
-      </Badge>
-    );
-  }
-
-  if (type === 'date' && typeof value === 'object' && value.start) {
-    return <span>{value.start}</span>;
-  }
-
-  if (type === 'array' && Array.isArray(value)) {
-    return <span>{value.join(', ')}</span>;
-  }
-
-  if (type === 'number') {
-    return <span>{value}</span>;
-  }
-
-  return <span>{String(value)}</span>;
-}
-
-function getColorForStatus(color: string): string {
-  const colorMap: Record<string, string> = {
-    gray: '#6b7280',
-    blue: '#3b82f6',
-    green: '#10b981',
-    yellow: '#f59e0b',
-    red: '#ef4444',
-    orange: '#f97316',
-  };
-  return colorMap[color] || colorMap.gray;
 }
 
